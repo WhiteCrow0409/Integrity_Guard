@@ -9,6 +9,7 @@ import { detectEyeMetrics, cleanupEyeTracker } from '../lib/eyeTracking';
 import type { GazeDirection } from '../lib/eyeTracking';
 import { detectAIContent, checkPlagiarism } from '../lib/gemini';
 import { GaussianDFTAudioDetectorFast } from '../lib/AudioDetectorFast';
+import { startLiveAudioAnalysis, LiveAudioController, LiveFrequencyResult } from '../lib/liveAudio';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -95,6 +96,11 @@ export function ExamSession() {
   // Audio recording states
   const [audioRecorder, setAudioRecorder] = useState<MediaRecorder | null>(null);
   const [audioAnalysisResult, setAudioAnalysisResult] = useState<AudioAnalysisResult | null>(null);
+  
+  // Live frequency analysis states
+  const [currentFrequency, setCurrentFrequency] = useState<number>(0);
+  const [frequencyHistory, setFrequencyHistory] = useState<number[]>([]);
+  const [liveAudioController, setLiveAudioController] = useState<LiveAudioController | null>(null);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -396,6 +402,47 @@ export function ExamSession() {
     }
   };
 
+  // Start live frequency analysis when exam starts
+  useEffect(() => {
+    let controller: LiveAudioController | null = null;
+
+    const startFrequencyAnalysis = async () => {
+      try {
+        controller = await startLiveAudioAnalysis(
+          ({ peakFreq, peakVal, timestamp }: LiveFrequencyResult) => {
+            // Update current frequency with throttling to avoid excessive re-renders
+            setCurrentFrequency((prev) => {
+              const diff = Math.abs(prev - peakFreq);
+              // Only update if frequency changed by more than 5 Hz
+              return diff > 5 ? peakFreq : prev;
+            });
+
+            // Track history (keep last 10 values)
+            setFrequencyHistory((prev) => {
+              const updated = [...prev, peakFreq];
+              return updated.slice(-10);
+            });
+
+            console.log(`Live frequency: ${peakFreq.toFixed(1)} Hz (magnitude: ${peakVal.toFixed(2)})`);
+          }
+        );
+        setLiveAudioController(controller);
+      } catch (error) {
+        console.error('Failed to start live frequency analysis:', error);
+      }
+    };
+
+    if (examStarted && !examCompleted && hasWebcamAccess) {
+      startFrequencyAnalysis();
+    }
+
+    return () => {
+      if (controller) {
+        controller.stop().catch(console.error);
+      }
+    };
+  }, [examStarted, examCompleted, hasWebcamAccess]);
+
   const handleSubmit = () => {
     const hasEmptyAnswers = questions.some(q => !q.answer.trim());
     if (hasEmptyAnswers) {
@@ -409,6 +456,11 @@ export function ExamSession() {
     // Stop audio recording
     if (audioRecorder && audioRecorder.state === 'recording') {
       audioRecorder.stop();
+    }
+    
+    // Stop live frequency analysis
+    if (liveAudioController) {
+      liveAudioController.stop().catch(console.error);
     }
     
     if (webcamStream) {
@@ -962,6 +1014,43 @@ export function ExamSession() {
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-gray-500">Away streak</p>
               <p className="font-semibold text-gray-900">{awayConsecutiveSeconds}s</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Live Frequency Monitor */}
+        <motion.div
+          className="bg-white rounded-3xl shadow-xl border border-purple-200"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+              <Mic className="w-5 h-5 text-purple-600" />
+              <span>Live Frequency</span>
+            </h3>
+          </div>
+          <div className="p-4">
+            <motion.div
+              className="text-center p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl"
+              animate={{
+                scale: currentFrequency > 0 ? [1, 1.05, 1] : 1
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <p className="text-4xl font-bold text-purple-600">
+                {currentFrequency > 0 ? currentFrequency.toFixed(1) : '—'}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Hz</p>
+            </motion.div>
+            
+            {/* Frequency range indicator */}
+            <div className="mt-4 text-xs text-gray-500 text-center">
+              {currentFrequency === 0 && <p>Waiting for audio...</p>}
+              {currentFrequency > 0 && currentFrequency < 250 && <p>Low frequency (bass)</p>}
+              {currentFrequency >= 250 && currentFrequency < 2000 && <p>Speech range</p>}
+              {currentFrequency >= 2000 && <p>High frequency</p>}
             </div>
           </div>
         </motion.div>
