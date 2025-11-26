@@ -423,6 +423,27 @@ export function ExamSession() {
               return updated.slice(-10);
             });
 
+            // Check if frequency exceeds 300 Hz
+            if (peakFreq > 300) {
+              // Log warning (only if not recently logged)
+              setWarnings(prev => {
+                const lastWarning = prev[prev.length - 1];
+                const isDuplicate = lastWarning?.includes('High frequency detected') && 
+                                   Date.now() - (timestamp || Date.now()) < 5000;
+                
+                if (!isDuplicate) {
+                  // Emit socket event for suspicious activity
+                  socket.emit('suspicious-activity', {
+                    type: 'high-frequency-audio',
+                    message: `High frequency detected: ${peakFreq.toFixed(1)} Hz`
+                  });
+                  
+                  return [...prev, `High frequency detected: ${peakFreq.toFixed(1)} Hz`];
+                }
+                return prev;
+              });
+            }
+
             console.log(`Live frequency: ${peakFreq.toFixed(1)} Hz (magnitude: ${peakVal.toFixed(2)})`);
           }
         );
