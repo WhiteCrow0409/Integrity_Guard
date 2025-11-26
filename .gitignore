@@ -1,0 +1,71 @@
+# ───────────────────────────────
+# Node / NPM
+# ───────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# ───────────────────────────────
+# Build / Output
+# ───────────────────────────────
+dist/
+build/
+.cache/
+.temp/
+out/
+.vite/
+vite.config.ts.timestamp-*
+*.tsbuildinfo
+
+# ───────────────────────────────
+# Environment / Secrets
+# ───────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ───────────────────────────────
+# Editor / IDE files
+# ───────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ───────────────────────────────
+# Logs / Coverage
+# ───────────────────────────────
+logs/
+*.log
+coverage/
+*.lcov
+
+# ───────────────────────────────
+# OS / Misc
+# ───────────────────────────────
+*.bak
+*.tmp
+*.temp
+*.old
+*.orig
+
+# ───────────────────────────────
+# TensorFlow / Model Cache
+# ───────────────────────────────
+tfjs_model/
+mediapipe_model_cache/
+*.tflite
+*.bin
+*.onnx
